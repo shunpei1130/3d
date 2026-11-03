@@ -1,6 +1,6 @@
 import {z} from 'zod';
 import {designSchema} from './design';
-export const responseSchema=z.object({reply:z.string().max(5000),design:designSchema.nullable()});
+export const responseSchema=z.object({reply:z.string().max(5000),ready:z.boolean(),summary:z.string().max(1000),design:designSchema.nullable()});
 export function openAIResponseSchema(){
  const root:any=z.toJSONSchema(responseSchema,{target:'draft-7'});
  delete root.$schema;

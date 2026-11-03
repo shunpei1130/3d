@@ -1,0 +1,1 @@
+export function GET(){return Response.json({chat:!!process.env.OPENAI_API_KEY,email:!!process.env.RESEND_API_KEY,protected:!!process.env.STUDIO_PASSWORD,model:'gpt-6-luna',effort:'max'},{headers:{'Cache-Control':'no-store'}});}

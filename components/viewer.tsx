@@ -24,19 +24,19 @@ export default function Viewer({data,busy}:{data:MeshResult|null;busy:boolean}){
  const offset=phone?-(IPHONE.width+22)/2:0;
  return <div className="viewer-wrap">
   <div className="viewer-top"><span className="live-dot"/> 実寸プレビュー <span className="unit">単位 mm</span></div>
-  <div className="viewport" data-testid="viewport" aria-label="作成したモデルとiPhone 16の3Dサイズ比較">
-   <Boundary>{data?<Canvas shadows dpr={[1,1.7]} camera={{position:[220,180,280],fov:37,near:.1,far:2000}} gl={{antialias:true}}>
+  <div className="viewport" data-testid="viewport" aria-label={data?'作成したモデルとiPhone 16の3Dサイズ比較':'iPhone 16の3Dモデル'}>
+   <Boundary><Canvas shadows dpr={[1,1.7]} camera={{position:[220,180,280],fov:37,near:.1,far:2000}} gl={{antialias:true}}>
     <color attach="background" args={['#f0f0e9']}/><ambientLight intensity={1.8}/><directionalLight position={[100,300,120]} intensity={3} castShadow shadow-mapSize={[1024,1024]} shadow-camera-left={-240} shadow-camera-right={240} shadow-camera-top={240} shadow-camera-bottom={-240}/><directionalLight position={[-200,100,-100]} intensity={1.2}/>
-    <group position={[offset,0,0]}><Item data={data} color={color}/><Html position={[0,.5,data.dimensions[1]/2+16]} center><div className="model-label">つくるもの <b>{data.dimensions[0].toFixed(0)} × {data.dimensions[1].toFixed(0)} × {data.dimensions[2].toFixed(0)}</b></div></Html></group>
-    {phone&&<group position={[data.dimensions[0]/2+22+IPHONE.width/2+offset,0,0]}><Phone upright={upright}/><Html position={[0,0,90]} center><div className="model-label phone-label">iPhone 16 <b>71.6 × 147.6 × 7.8</b></div></Html></group>}
+    {data&&<group position={[offset,0,0]}><Item data={data} color={color}/><Html position={[0,.5,data.dimensions[1]/2+16]} center><div className="model-label">つくるもの <b>{data.dimensions[0].toFixed(0)} × {data.dimensions[1].toFixed(0)} × {data.dimensions[2].toFixed(0)}</b></div></Html></group>}
+    {phone&&<group position={data?[data.dimensions[0]/2+22+IPHONE.width/2+offset,0,0]:[0,0,0]}><Phone upright={upright}/><Html position={[0,0,90]} center><div className="model-label phone-label">iPhone 16 <b>71.6 × 147.6 × 7.8</b></div></Html></group>}
     {grid&&<Grid position={[0,-.12,0]} args={[600,600]} cellSize={10} cellThickness={.5} cellColor="#d4d8cd" sectionSize={50} sectionThickness={.8} sectionColor="#c2c9bc" fadeDistance={650} infiniteGrid/>}
     <ContactShadows position={[0,-.08,0]} opacity={.24} scale={700} blur={2.5} far={180} resolution={256} color="#4e6555"/>
-    <Rig reset={reset} data={data}/>
-   </Canvas>:<div className="viewer-fallback"><Box size={30}/><p>かたちを準備しています</p></div>}</Boundary>
+    {data?<Rig reset={reset} data={data}/>:<OrbitControls key={reset} makeDefault minDistance={70} maxDistance={850} maxPolarAngle={Math.PI/2-.01} enableDamping/>}
+   </Canvas></Boundary>
    {busy&&<div className="model-busy"><span className="spinner"/>かたちを更新中</div>}
    <div className="viewer-hint"><ArrowUpRight size={14}/>ドラッグで回転 · スクロールで拡大</div>
   </div>
-  <div className="viewer-controls"><button aria-pressed={phone} className={phone?'active':''} onClick={()=>setPhone(v=>!v)}><Smartphone size={15}/>iPhone 16と比較</button>{phone&&<button onClick={()=>setUpright(v=>!v)}>{upright?'寝かせる':'立てる'}</button>}<button aria-pressed={grid} onClick={()=>setGrid(v=>!v)} className="grid-toggle">グリッド</button><button aria-label="視点をリセット" onClick={()=>setReset(n=>n+1)}><RotateCcw size={16}/></button><div className="swatches" aria-label="表示カラー">{['#a5b4a4','#d8c9b1','#a9afb8','#e3dcd0'].map(c=><button key={c} style={{background:c}} aria-label={`表示色 ${c}`} aria-pressed={c===color} className={c===color?'selected':''} onClick={()=>setColor(c)}/>)}</div></div>
+  <div className="viewer-controls"><button aria-pressed={phone} className={phone?'active':''} onClick={()=>setPhone(v=>!v)}><Smartphone size={15}/>{data?'iPhone 16と比較':'iPhone 16'}</button>{phone&&data&&<button onClick={()=>setUpright(v=>!v)}>{upright?'寝かせる':'立てる'}</button>}{data&&<div className="swatches" aria-label="表示カラー">{['#a5b4a4','#d8c9b1','#a9afb8','#e3dcd0'].map(c=><button key={c} style={{background:c}} aria-label={`表示色 ${c}`} aria-pressed={c===color} className={c===color?'selected':''} onClick={()=>setColor(c)}/>)}</div>}<button aria-pressed={grid} onClick={()=>setGrid(v=>!v)} className={data?'grid-toggle':''}>グリッド</button><button aria-label="視点をリセット" onClick={()=>setReset(n=>n+1)}><RotateCcw size={16}/></button></div>
   <p className="color-note">色は表示用です。印刷には現在のフィラメントを使用します。iPhoneは本体外寸の比較用モデルです（カメラの突起・ケースを除く）。</p>
  </div>
 }

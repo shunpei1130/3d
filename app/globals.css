@@ -25,3 +25,5 @@
 @media(max-width:520px){.header{gap:7px}.brand{font-size:25px;gap:6px}.brand-icon svg{width:20px;height:20px}.header-right{gap:5px}.workspace-tabs{gap:2px;padding:3px}.workspace-tab{min-height:34px;padding:5px 8px;font-size:10px;gap:5px}.header-right>.icon-button{width:28px;height:28px}.preview-notice{font-size:9px}}
 @media(max-width:380px){.brand{font-size:22px}.workspace-tab{padding:5px 6px}.workspace-tab svg{width:14px;height:14px}}
 @media(prefers-reduced-motion:reduce){.preview-updated .viewer-wrap{animation:none}}
+
+[hidden]{display:none!important}

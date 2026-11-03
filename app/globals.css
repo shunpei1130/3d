@@ -27,3 +27,4 @@
 @media(prefers-reduced-motion:reduce){.preview-updated .viewer-wrap{animation:none}}
 
 [hidden]{display:none!important}
+.brand{font-size:24px;letter-spacing:0;white-space:nowrap}@media(max-width:520px){.brand{font-size:15px;gap:0}.brand-icon{display:none}}

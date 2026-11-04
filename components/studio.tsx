@@ -8,16 +8,22 @@ import {MeshResult} from './viewer';
 const Viewer=dynamic(()=>import('./viewer'),{ssr:false,loading:()=> <div className="viewer-placeholder"><Box/>3Dスタジオを開いています</div>});
 type Message={role:'user'|'assistant';content:string};
 type Saved={id:string;date:string;design:Design};
+function addSavedDesign(entries:Saved[], item:Saved):Saved[]{
+ const key=JSON.stringify(item.design);
+ if(entries.some(entry=>JSON.stringify(entry.design)===key))return entries;
+ return [item,...entries].slice(0,12);
+}
 function download(name:string,data:BlobPart,type:string){const url=URL.createObjectURL(new Blob([data],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);}
 export default function Studio(){
  const [previewAvailable,setPreviewAvailable]=useState(false),[creating,setCreating]=useState(false);
  const pendingPreview=useRef(false);
+ const restoredDesign=useRef<Design|null>(null);
  const [creationStarted,setCreationStarted]=useState<number|null>(null),[creationElapsed,setCreationElapsed]=useState(0);
  const creationEstimate=useRef(120);
  useEffect(()=>{if(!creating){setCreationStarted(null);return;}if(!creationStarted)return;const update=()=>setCreationElapsed(Math.floor((Date.now()-creationStarted)/1000));update();const timer=setInterval(update,1000);return()=>clearInterval(timer)},[creating,creationStarted]);
  const [design,setDesign]=useState<Design|null>(null),[mesh,setMesh]=useState<MeshResult|null>(null),[busy,setBusy]=useState(false),[generating,setGenerating]=useState(false),[emailBusy,setEmailBusy]=useState(false),[input,setInput]=useState(''),[messages,setMessages]=useState<Message[]>([{role:'assistant',content:initialMessage}]),[error,setError]=useState(''),[toast,setToast]=useState(''),[status,setStatus]=useState({chat:false,email:false,protected:false}),[saved,setSaved]=useState<Saved[]>([]),[history,setHistory]=useState<Array<Design|null>>([]),[tab,setTab]=useState<'chat'|'saved'>('chat'),[workspaceView,setWorkspaceView]=useState<'chat'|'preview'>('chat'),[previewUpdated,setPreviewUpdated]=useState(false),[settings,setSettings]=useState(false),[code,setCode]=useState(''),[showSpecs,setShowSpecs]=useState(false),[ready,setReady]=useState(false);
  const worker=useRef<Worker|null>(null),job=useRef(0),timeout=useRef<ReturnType<typeof setTimeout>|null>(null),chatEnd=useRef<HTMLDivElement|null>(null),previewPanel=useRef<HTMLElement|null>(null),fileInput=useRef<HTMLInputElement|null>(null),abort=useRef<AbortController|null>(null),meshDesign=useRef<Design|null>(null);
- useEffect(()=>{fetch('/api/status').then(r=>r.json()).then(setStatus).catch(()=>{});try{const s=JSON.parse(localStorage.getItem('katachi-saved')||'[]');setSaved(s.slice(0,12));const d=localStorage.getItem('katachi-current');if(d){const restored=validateDesign(JSON.parse(d));const isStarterTray=restored.name===tray.name&&restored.description===tray.description&&JSON.stringify(restored.parts)===JSON.stringify(tray.parts)&&JSON.stringify(restored.notes)===JSON.stringify(tray.notes);if(isStarterTray)localStorage.removeItem('katachi-current');else setDesign(restored);}}catch{}setReady(true);return()=>abort.current?.abort()},[]);
+ useEffect(()=>{fetch('/api/status').then(r=>r.json()).then(setStatus).catch(()=>{});try{const s=JSON.parse(localStorage.getItem('katachi-saved')||'[]');setSaved(s.slice(0,12));const d=localStorage.getItem('katachi-current');if(d){const restored=validateDesign(JSON.parse(d));const isStarterTray=restored.name===tray.name&&restored.description===tray.description&&JSON.stringify(restored.parts)===JSON.stringify(tray.parts)&&JSON.stringify(restored.notes)===JSON.stringify(tray.notes);if(isStarterTray)localStorage.removeItem('katachi-current');else {restoredDesign.current=restored;setDesign(restored);}}}catch{}setReady(true);return()=>abort.current?.abort()},[]);
  useEffect(()=>{if(!ready)return;try{if(design)localStorage.setItem('katachi-current',JSON.stringify(design));else localStorage.removeItem('katachi-current');localStorage.setItem('katachi-saved',JSON.stringify(saved))}catch{}},[ready,design,saved]);
  useEffect(()=>{chatEnd.current?.scrollIntoView({behavior:'smooth',block:'nearest'})},[messages,generating]);
  useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(''),4500);return()=>clearTimeout(t)},[toast]);
@@ -29,7 +35,13 @@ export default function Studio(){
   setBusy(true);const id=++job.current;
   worker.current?.terminate();if(timeout.current)clearTimeout(timeout.current);
   const w=new Worker(new URL('../lib/worker.ts',import.meta.url));worker.current=w;
-  w.onmessage=e=>{if(e.data.id!==job.current)return;if(timeout.current)clearTimeout(timeout.current);setBusy(false);if(e.data.error){pendingPreview.current=false;setCreating(false);setError(e.data.error);}else{setMesh(e.data);meshDesign.current=d;if(pendingPreview.current){pendingPreview.current=false;setCreating(false);setCreationStarted(start=>{if(start){try{localStorage.setItem('katachi-creation-seconds',String(Math.round((Date.now()-start)/1000)))}catch{}}return null});setPreviewAvailable(true);setWorkspaceView('preview');setPreviewUpdated(true);}}};
+  w.onmessage=e=>{if(e.data.id!==job.current)return;if(timeout.current)clearTimeout(timeout.current);setBusy(false);if(e.data.error){pendingPreview.current=false;setCreating(false);setError(e.data.error);}else{setMesh(e.data);meshDesign.current=d;
+   if(pendingPreview.current||restoredDesign.current===d){
+    restoredDesign.current=null;
+    const item={id:crypto.randomUUID(),date:new Date().toISOString(),design:d};
+    setSaved(entries=>addSavedDesign(entries,item));
+   }
+   if(pendingPreview.current){pendingPreview.current=false;setCreating(false);setCreationStarted(start=>{if(start){try{localStorage.setItem('katachi-creation-seconds',String(Math.round((Date.now()-start)/1000)))}catch{}}return null});setPreviewAvailable(true);setWorkspaceView('preview');setPreviewUpdated(true);}}};
   w.onerror=()=>{if(timeout.current)clearTimeout(timeout.current);setBusy(false);setCreating(false);pendingPreview.current=false;setError('3Dデータを作成できませんでした。指示を見直すか、形をシンプルにしてください。');};
   timeout.current=setTimeout(()=>{w.terminate();setBusy(false);setError('形状が複雑で処理に時間がかかっています。パーツを減らしてお試しください。')},45000);
   w.postMessage({id,design:d});
@@ -41,7 +53,7 @@ export default function Studio(){
   try{const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json','x-studio-password':code},body:JSON.stringify({messages:next.slice(-24),design,mode:request?'generate':'consult'}),signal:controller.signal});const data=await r.json();if(!r.ok)throw new Error(data.error||'AIと接続できませんでした。');setMessages(m=>[...m,{role:'assistant',content:data.reply}]);if(data.design){change(data.design);}else if(request){pendingPreview.current=false;setCreating(false);}}
   catch(e){if(e instanceof Error&&e.name==='AbortError'){setToast('相談を停止しました');}else{pendingPreview.current=false;setCreating(false);setError(e instanceof Error?e.message:'接続に失敗しました。');setInput(prompt);}}finally{setGenerating(false);abort.current=null;}
  }
- function save(){if(!design)return;const item={id:crypto.randomUUID(),date:new Date().toISOString(),design};setSaved(s=>[item,...s].slice(0,12));setToast('このブラウザに保存しました');}
+ function save(){if(!design)return;const item={id:crypto.randomUUID(),date:new Date().toISOString(),design};setSaved(entries=>addSavedDesign(entries,item));setToast('このブラウザに保存しました');}
  async function email(){if(!design||!mesh||busy||generating||emailBusy||meshDesign.current!==design)return;setEmailBusy(true);setError('');try{const r=await fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json','x-studio-password':code},body:JSON.stringify({design})});const data=await r.json();if(!r.ok)throw new Error(data.error||'送信に失敗しました');setToast('Resendがメール送信を受け付けました。受信箱をご確認ください。')}catch(e){setError(e instanceof Error?e.message:'送信に失敗しました。')}finally{setEmailBusy(false)}}
  const enabled=!!mesh&&!busy&&!generating;
  return <div className="studio-shell">
